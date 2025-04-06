@@ -272,22 +272,22 @@
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json'
-                    },
-                    mode: 'cors'
+                    }
                 });
                 
                 if (response.ok) {
-                    const data = await response.json();
+                    statusDot.classList.remove('offline');
                     statusDot.classList.add('online');
-                    statusText.textContent = `API is online (${API_URL})`;
+                    statusText.textContent = 'API is online';
                     return true;
                 } else {
                     throw new Error('API returned error');
                 }
             } catch (error) {
                 console.error('API Error:', error);
+                statusDot.classList.remove('online');
                 statusDot.classList.add('offline');
-                statusText.textContent = 'API is offline - Using mock data';
+                statusText.textContent = 'API is offline - Please try again later';
                 return false;
             }
         }

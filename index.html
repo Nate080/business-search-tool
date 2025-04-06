@@ -245,6 +245,63 @@
     </div>
 
     <script>
+        // Mock BBB data generator
+        class MockBBBScraper {
+            constructor(minYears, requiredFields) {
+                this.minYears = minYears || 10;
+                this.requiredFields = requiredFields || ['phone'];
+            }
+
+            async searchBusinesses(city, term) {
+                // Generate and return mock data
+                console.log(`[Mock] Searching ${term} in ${city}`);
+                return this.getMockData(city, term);
+            }
+
+            validateBusiness(business) {
+                // Check years in business
+                const years = parseInt(business.yearsInBusiness);
+                if (isNaN(years) || years < this.minYears) {
+                    return false;
+                }
+
+                // Check required fields
+                for (const field of this.requiredFields) {
+                    if (!business[field]) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            getMockData(city, term) {
+                const results = [];
+                // Generate 5-10 random results
+                const numResults = Math.floor(Math.random() * 6) + 5;
+                
+                for (let i = 1; i <= numResults; i++) {
+                    const years = Math.floor(Math.random() * 20) + 10; // 10-30 years
+                    results.push({
+                        name: `${term} Company ${i} of ${city}`,
+                        city: city,
+                        searchTerm: term,
+                        phone: `(${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
+                        address: `${Math.floor(Math.random() * 9999) + 1} Business Ave, ${city}`,
+                        yearsInBusiness: String(years),
+                        owner: `Owner ${i}`,
+                        website: `www.example${i}.com`,
+                        isMatch: true
+                    });
+                }
+                
+                // Add a small delay to simulate network request
+                return new Promise(resolve => {
+                    setTimeout(() => resolve(results), 500);
+                });
+            }
+        }
+
         let currentUser = '';
         let currentSearchId = '';
 
@@ -375,47 +432,73 @@
                 document.getElementById('searchSection').style.display = 'none';
                 document.getElementById('progressSection').style.display = 'block';
                 
-                // Initialize web worker for search
-                const worker = new Worker('mock-search-worker.js');
-                worker.postMessage({
-                    type: 'start',
-                    data: {
-                        searchId: currentSearchId,
-                        config: searchConfig
-                    }
-                });
+                // Initialize mock BBB scraper
+                const scraper = new MockBBBScraper(minYears, requiredFields);
+                let processedCombos = 0;
+                const totalCombos = cities.length * terms.length;
+                const results = [];
+                const startTime = Date.now();
 
-                worker.onmessage = async function(e) {
-                    const { type, data } = e.data;
-                    
-                    switch (type) {
-                        case 'progress':
-                            updateProgress(data);
-                            // Update Firebase with progress
+                for (let city of cities) {
+                    for (let term of terms) {
+                        try {
+                            console.log(`Processing ${term} in ${city}...`);
+                            
+                            // Get mock data for this city/term combination
+                            const businessResults = await scraper.searchBusinesses(city, term);
+                            
+                            // Filter results based on requirements
+                            const validResults = businessResults.filter(business => 
+                                scraper.validateBusiness(business)
+                            );
+                            
+                            // Add valid results to our collection
+                            results.push(...validResults);
+                            
+                            processedCombos++;
+                            
+                            // Calculate elapsed time and estimated time remaining
+                            const elapsedMs = Date.now() - startTime;
+                            const avgTimePerCombo = elapsedMs / processedCombos;
+                            const remainingCombos = totalCombos - processedCombos;
+                            const estimatedRemainingMs = avgTimePerCombo * remainingCombos;
+                            
+                            // Update progress
+                            const progress = Math.floor((processedCombos / totalCombos) * 100);
+                            document.getElementById('progressBar').style.width = `${progress}%`;
+                            document.getElementById('searchedCount').textContent = results.length;
+                            document.getElementById('matchesCount').textContent = results.filter(r => r.isMatch).length;
+                            document.getElementById('timeRemaining').textContent = `${Math.floor(estimatedRemainingMs / 60000)} minutes`;
+                            document.getElementById('runningTime').textContent = formatRunningTime(startTime);
+                            document.getElementById('successRate').textContent = `${Math.floor((results.filter(r => r.isMatch).length / results.length) * 100)}%`;
+
+                            // Update Firebase
                             await updateDoc(doc(window.db, 'searches', currentSearchId), {
-                                progress: data.progress,
-                                results: arrayUnion(...data.results),
+                                progress: progress,
+                                results: arrayUnion(...validResults),
                                 lastUpdate: serverTimestamp()
                             });
-                            break;
-                            
-                        case 'complete':
-                            handleSearchComplete(data);
-                            // Update Firebase with completion
-                            await updateDoc(doc(window.db, 'searches', currentSearchId), {
-                                status: 'completed',
-                                progress: 100,
-                                results: data.results,
-                                endTime: serverTimestamp()
-                            });
-                            break;
-                            
-                        case 'error':
-                            console.error('Search error:', data);
-                            break;
+
+                        } catch (error) {
+                            console.error(`Error processing ${term} in ${city}:`, error);
+                        }
+                        
+                        // Add a small delay between searches
+                        await new Promise(resolve => setTimeout(resolve, 500));
                     }
-                };
+                }
+
+                // Handle search completion
+                handleSearchComplete({ results });
                 
+                // Update Firebase with completion
+                await updateDoc(doc(window.db, 'searches', currentSearchId), {
+                    status: 'completed',
+                    progress: 100,
+                    results: results,
+                    endTime: serverTimestamp()
+                });
+
             } catch (error) {
                 console.error('Error starting search:', error);
                 alert('Error starting search. Please try again.');
@@ -432,16 +515,6 @@
                 return false;
             }
             return true;
-        }
-
-        function updateProgress(data) {
-            const { progress, results } = data;
-            document.getElementById('progressBar').style.width = `${progress}%`;
-            document.getElementById('searchedCount').textContent = results.length;
-            document.getElementById('matchesCount').textContent = results.filter(r => r.isMatch).length;
-            document.getElementById('timeRemaining').textContent = `${Math.floor((100 - progress) / 10)} minutes`;
-            document.getElementById('runningTime').textContent = formatRunningTime(data.startTime);
-            document.getElementById('successRate').textContent = `${Math.floor((results.filter(r => r.isMatch).length / results.length) * 100)}%`;
         }
 
         function handleSearchComplete(data) {

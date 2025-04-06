@@ -382,16 +382,16 @@
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({
-                                    industry,
-                                    location,
-                                    pages,
-                                    minYears,
-                                    requireAllFields
+                                    businessType: industry,
+                                    city: location,
+                                    minYearsInBusiness: minYears,
+                                    requirePhone: requireAllFields
                                 })
                             });
                             
                             if (!response.ok) {
-                                throw new Error(`API Error: ${response.statusText}`);
+                                const errorData = await response.json().catch(() => ({}));
+                                throw new Error(`API Error: ${response.statusText}${errorData.details ? ` - ${errorData.details}` : ''}`);
                             }
                             
                             const searchResults = await response.json();

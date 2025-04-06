@@ -153,13 +153,7 @@
             flex: 1;
         }
         .demo-notice {
-            background-color: #fff3cd;
-            color: #856404;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border: 1px solid #ffeeba;
-            border-radius: 4px;
-            text-align: center;
+            display: none; /* Hide demo notice */
         }
         .github-link {
             position: fixed;
@@ -265,7 +259,7 @@
     </div>
 
     <script>
-        // API Configuration
+        // API Configuration - Production URL
         const API_URL = 'https://business-search-toolv.onrender.com';
         
         // Check API Status
@@ -338,40 +332,7 @@
         // Trigger initial estimate
         document.getElementById('estimatedTime').textContent = calculateEstimatedTime().text;
 
-        // Mock data generator for demo purposes
-        function generateMockBusinesses(industry, location, count = 5) {
-            const businesses = [];
-            const businessTypes = {
-                'Restaurant': ['Italian', 'Mexican', 'Chinese', 'American', 'Thai'],
-                'Plumber': ['Emergency', '24/7', 'Commercial', 'Residential'],
-                'Electrician': ['Commercial', 'Residential', 'Industrial', 'Solar'],
-            };
-            
-            const streets = ['Main St', 'Oak Ave', 'Maple Dr', 'Washington Blvd', 'Market St'];
-            const names = ['John', 'Jane', 'Robert', 'Mary', 'James', 'Patricia'];
-            const surnames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia'];
-            
-            for (let i = 0; i < count; i++) {
-                const type = businessTypes[industry] ? businessTypes[industry][Math.floor(Math.random() * businessTypes[industry].length)] : '';
-                const streetNum = Math.floor(Math.random() * 9000) + 1000;
-                const street = streets[Math.floor(Math.random() * streets.length)];
-                const years = Math.floor(Math.random() * 30) + 10;
-                const owner = `${names[Math.floor(Math.random() * names.length)]} ${surnames[Math.floor(Math.random() * surnames.length)]}`;
-                
-                businesses.push({
-                    name: `${type} ${industry} ${i + 1}`,
-                    phone: `(${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
-                    address: `${streetNum} ${street}, ${location}`,
-                    yearsInBusiness: years.toString(),
-                    owner: owner,
-                    website: `https://www.example.com/${type.toLowerCase()}-${industry.toLowerCase()}-${i + 1}`.replace(/\s+/g, '-'),
-                });
-            }
-            
-            return businesses;
-        }
-
-        // Update form submission
+        // Update form submission to always use real API
         document.getElementById('searchForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -393,67 +354,46 @@
             let totalResults = 0;
             
             try {
-                const isApiOnline = await checkApiStatus();
-                
                 for (const industry of industries) {
                     for (const location of locations) {
                         const status = document.querySelector('.status');
                         status.textContent = `Searching for ${industry} in ${location}...`;
                         
-                        let searchResults;
-                        
-                        if (isApiOnline) {
-                            try {
-                                const response = await fetch(`${API_URL}/api/search`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Accept': 'application/json'
-                                    },
-                                    mode: 'cors',
-                                    body: JSON.stringify({
-                                        industry,
-                                        location,
-                                        pages,
-                                        minYears,
-                                        requireAllFields
-                                    })
-                                });
-                                
-                                if (!response.ok) {
-                                    throw new Error(`API Error: ${response.statusText}`);
-                                }
-                                
-                                searchResults = await response.json();
-                            } catch (error) {
-                                console.error('Search Error:', error);
-                                // Fallback to mock data on error
-                                searchResults = generateMockBusinesses(industry, location);
+                        try {
+                            const response = await fetch(`${API_URL}/api/search`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                },
+                                mode: 'cors',
+                                body: JSON.stringify({
+                                    industry,
+                                    location,
+                                    pages,
+                                    minYears,
+                                    requireAllFields
+                                })
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error(`API Error: ${response.statusText}`);
                             }
-                        } else {
-                            // Use mock data when API is offline
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                            searchResults = generateMockBusinesses(industry, location);
+                            
+                            const searchResults = await response.json();
+                            results.push(...searchResults);
+                            
+                            completedSearches++;
+                            totalResults += searchResults.length;
+                            
+                            document.getElementById('completedSearches').textContent = completedSearches;
+                            document.getElementById('totalResults').textContent = totalResults;
+                            document.querySelector('.progress-bar-fill').style.width = `${(completedSearches / totalSearches) * 100}%`;
+                        } catch (error) {
+                            console.error('Search Error:', error);
+                            status.textContent = `Error searching ${industry} in ${location}: ${error.message}`;
+                            status.classList.add('error');
                         }
-                        
-                        // Filter results
-                        searchResults = searchResults.filter(b => {
-                            const years = parseInt(b.yearsInBusiness);
-                            if (isNaN(years) || years < minYears) return false;
-                            if (requireAllFields) {
-                                return Object.values(b).every(v => v && v.trim() !== '');
-                            }
-                            return true;
-                        });
-                        
-                        results.push(...searchResults);
-                        
-                        completedSearches++;
-                        totalResults += searchResults.length;
-                        
-                        document.getElementById('completedSearches').textContent = completedSearches;
-                        document.getElementById('totalResults').textContent = totalResults;
-                        document.querySelector('.progress-bar-fill').style.width = `${(completedSearches / totalSearches) * 100}%`;
                     }
                 }
                 

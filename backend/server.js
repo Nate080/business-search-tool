@@ -11,24 +11,36 @@ app.use((req, res, next) => {
     next();
 });
 
-// CORS configuration
-app.use(cors({
-    origin: '*', // Allow all origins for debugging
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept'],
-    optionsSuccessStatus: 200
-}));
-
-// Add error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).json({
-        error: 'Internal Server Error',
-        message: err.message
-    });
+// CORS configuration - more permissive for debugging
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.header('Access-Control-Max-Age', '86400'); // 24 hours
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+    next();
 });
 
+// Regular CORS middleware as backup
+app.use(cors());
+
 app.use(express.json());
+
+// Error handling for JSON parsing
+app.use((err, req, res, next) => {
+    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        return res.status(400).json({ 
+            error: 'Invalid JSON',
+            details: err.message 
+        });
+    }
+    next(err);
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -38,6 +50,15 @@ const limiter = rateLimit({
 });
 
 app.use('/api/', limiter);
+
+// Health check endpoint with detailed status
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
 
 // Search endpoint
 app.post('/api/search', async (req, res) => {
@@ -189,11 +210,6 @@ app.post('/api/search', async (req, res) => {
             }
         }
     }
-});
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok' });
 });
 
 const PORT = process.env.PORT || 3000;

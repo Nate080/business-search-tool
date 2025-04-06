@@ -1,16 +1,28 @@
 const express = require('express');
+const cors = require('cors');
 const puppeteer = require('puppeteer');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+
+// CORS configuration
+const corsOptions = {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:8080',
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type'],
+    maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// Rate limiting to prevent abuse
+// Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100 // limit each IP to 100 requests per windowMs
+    max: process.env.NODE_ENV === 'production' ? 100 : 0, // limit each IP in production
+    message: 'Too many requests from this IP, please try again after 15 minutes'
 });
 
 app.use('/api/', limiter);
@@ -272,4 +284,6 @@ app.get('/api/health', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log(`CORS origin: ${corsOptions.origin}`);
 }); 

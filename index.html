@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Search for businesses by location, type, and other criteria. Generate mock business data for testing and demonstration.">
-    <meta name="keywords" content="business search, mock data, business directory">
+    <meta name="description" content="Search for businesses by location, type, and other criteria. Find established businesses with detailed information.">
+    <meta name="keywords" content="business search, business directory, company search">
     <meta name="author" content="Business Search Tool">
     <meta property="og:title" content="Business Search Tool">
     <meta property="og:description" content="Search for businesses by location, type, and other criteria.">
     <meta property="og:type" content="website">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
-    <title>Business Search Tool (Demo)</title>
+    <title>Business Search Tool</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -174,14 +174,36 @@
         .github-link:hover {
             background: #1a1e22;
         }
+        .api-status {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ffc107;
+        }
+        .status-dot.online {
+            background: #28a745;
+        }
+        .status-dot.offline {
+            background: #dc3545;
+        }
     </style>
 </head>
 <body>
     <a href="https://github.com/Nate080/business-search-tool" class="github-link" target="_blank">View on GitHub</a>
     <div class="container">
-        <h1>Business Search Tool (Demo)</h1>
-        <div class="demo-notice">
-            <strong>⚠️ Demo Mode:</strong> This is a static demo version. For full functionality, please clone the repository and run the server locally.
+        <h1>Business Search Tool</h1>
+        <div class="api-status">
+            <span class="status-dot"></span>
+            <span class="status-text">Checking API status...</span>
         </div>
         <form id="searchForm">
             <div class="search-group">
@@ -243,6 +265,42 @@
     </div>
 
     <script>
+        // API Configuration - Update to use your Render.com URL
+        const API_URL = 'https://business-search-api.onrender.com';
+        
+        // Check API Status
+        async function checkApiStatus() {
+            const statusDot = document.querySelector('.status-dot');
+            const statusText = document.querySelector('.status-text');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDot.classList.add('online');
+                    statusText.textContent = `API is online (${API_URL})`;
+                    return true;
+                } else {
+                    throw new Error('API returned error');
+                }
+            } catch (error) {
+                console.error('API Error:', error);
+                statusDot.classList.add('offline');
+                statusText.textContent = 'API is offline - Using mock data';
+                return false;
+            }
+        }
+
+        // Check API status on page load
+        checkApiStatus();
+
         // Calculate estimated time based on form inputs
         function calculateEstimatedTime() {
             const industries = document.getElementById('industries').value.trim().split('\n').filter(x => x);
@@ -313,12 +371,13 @@
             return businesses;
         }
 
-        // Update form submission to use mock data
+        // Update form submission
         document.getElementById('searchForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const industries = document.getElementById('industries').value.trim().split('\n').filter(x => x);
             const locations = document.getElementById('locations').value.trim().split('\n').filter(x => x);
+            const pages = parseInt(document.getElementById('pages').value);
             const minYears = parseInt(document.getElementById('minYears').value);
             const requireAllFields = document.getElementById('requireAllFields').checked;
             
@@ -334,35 +393,67 @@
             let totalResults = 0;
             
             try {
+                const isApiOnline = await checkApiStatus();
+                
                 for (const industry of industries) {
                     for (const location of locations) {
                         const status = document.querySelector('.status');
                         status.textContent = `Searching for ${industry} in ${location}...`;
                         
-                        // Simulate network delay
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        let searchResults;
                         
-                        const mockResults = generateMockBusinesses(industry, location)
-                            .filter(b => {
-                                const years = parseInt(b.yearsInBusiness);
-                                if (isNaN(years) || years < minYears) return false;
-                                if (requireAllFields) {
-                                    return Object.values(b).every(v => v && v.trim() !== '');
+                        if (isApiOnline) {
+                            try {
+                                const response = await fetch(`${API_URL}/api/search`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Accept': 'application/json'
+                                    },
+                                    mode: 'cors',
+                                    body: JSON.stringify({
+                                        industry,
+                                        location,
+                                        pages,
+                                        minYears,
+                                        requireAllFields
+                                    })
+                                });
+                                
+                                if (!response.ok) {
+                                    throw new Error(`API Error: ${response.statusText}`);
                                 }
-                                return true;
-                            });
+                                
+                                searchResults = await response.json();
+                            } catch (error) {
+                                console.error('Search Error:', error);
+                                // Fallback to mock data on error
+                                searchResults = generateMockBusinesses(industry, location);
+                            }
+                        } else {
+                            // Use mock data when API is offline
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            searchResults = generateMockBusinesses(industry, location);
+                        }
                         
-                        results.push(...mockResults);
+                        // Filter results
+                        searchResults = searchResults.filter(b => {
+                            const years = parseInt(b.yearsInBusiness);
+                            if (isNaN(years) || years < minYears) return false;
+                            if (requireAllFields) {
+                                return Object.values(b).every(v => v && v.trim() !== '');
+                            }
+                            return true;
+                        });
+                        
+                        results.push(...searchResults);
                         
                         completedSearches++;
-                        totalResults += mockResults.length;
+                        totalResults += searchResults.length;
                         
                         document.getElementById('completedSearches').textContent = completedSearches;
                         document.getElementById('totalResults').textContent = totalResults;
                         document.querySelector('.progress-bar-fill').style.width = `${(completedSearches / totalSearches) * 100}%`;
-                        
-                        // Simulate processing delay
-                        await new Promise(resolve => setTimeout(resolve, 500));
                     }
                 }
                 

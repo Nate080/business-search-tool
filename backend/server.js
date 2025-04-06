@@ -5,16 +5,29 @@ const puppeteer = require('puppeteer');
 const rateLimit = require('express-rate-limit');
 const app = express();
 
+// Enable detailed error logging
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+});
+
 // CORS configuration
-const corsOptions = {
-    origin: ['https://nate080.github.io', 'http://localhost:8080'],
+app.use(cors({
+    origin: '*', // Allow all origins for debugging
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Accept'],
-    credentials: false,
     optionsSuccessStatus: 200
-};
+}));
 
-app.use(cors(corsOptions));
+// Add error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message
+    });
+});
+
 app.use(express.json());
 
 // Rate limiting

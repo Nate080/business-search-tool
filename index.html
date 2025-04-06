@@ -271,7 +271,7 @@
                 console.log('Checking API status...');
                 const response = await fetch(`${API_URL}/api/health`, {
                     method: 'GET',
-                    credentials: 'omit',
+                    mode: 'cors',
                     headers: {
                         'Accept': 'application/json'
                     }
@@ -377,9 +377,10 @@
                         try {
                             const response = await fetch(`${API_URL}/api/search`, {
                                 method: 'POST',
-                                credentials: 'omit',
+                                mode: 'cors',
                                 headers: {
-                                    'Content-Type': 'application/json'
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
                                 },
                                 body: JSON.stringify({
                                     businessType: industry,

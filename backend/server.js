@@ -30,108 +30,130 @@ app.use('/api/', limiter);
 app.post('/api/search', async (req, res) => {
     let browser = null;
     try {
-        const { city, businessType, minYearsInBusiness, requirePhone } = req.body;
+        const { businessType, city, minYearsInBusiness, requirePhone } = req.body;
         
-        console.log('Starting search for:', { city, businessType, minYearsInBusiness, requirePhone });
+        console.log('Starting search for:', { businessType, city, minYearsInBusiness, requirePhone });
         
-        // Launch browser with Windows-specific configuration
+        // Launch browser with production-ready configuration
         browser = await puppeteer.launch({
-            headless: false, // Set to false for debugging
+            headless: 'new',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
-                '--window-size=1920,1080'
-            ],
-            defaultViewport: null
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process',
+                '--disable-extensions'
+            ]
         });
         
         const page = await browser.newPage();
         
-        // Log console messages from the page
-        page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+        // Set a reasonable viewport
+        await page.setViewport({
+            width: 1280,
+            height: 800
+        });
         
         // Set user agent
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
         
+        // Enable request interception to block unnecessary resources
+        await page.setRequestInterception(true);
+        page.on('request', (request) => {
+            const resourceType = request.resourceType();
+            if (resourceType === 'image' || resourceType === 'stylesheet' || resourceType === 'font') {
+                request.abort();
+            } else {
+                request.continue();
+            }
+        });
+        
         console.log('Navigating to BBB search page...');
         
-        // Navigate to BBB search page
-        await page.goto('https://www.bbb.org/', {
-            waitUntil: 'networkidle0',
-            timeout: 60000
-        });
+        // Navigate to BBB search page with error handling
+        try {
+            await page.goto('https://www.bbb.org/', {
+                waitUntil: 'networkidle0',
+                timeout: 30000
+            });
+        } catch (error) {
+            console.error('Navigation error:', error);
+            throw new Error('Failed to load BBB website');
+        }
         
-        // Wait for and click the search box to activate it
-        await page.waitForSelector('#bbb-search-query', { timeout: 10000 });
-        await page.click('#bbb-search-query');
-        
-        // Type the business type
-        await page.type('#bbb-search-query', businessType, { delay: 100 });
-        
-        // Wait for and click the location input
-        await page.waitForSelector('#bbb-search-location', { timeout: 10000 });
-        await page.click('#bbb-search-location');
-        
-        // Clear any existing location and type the new one
-        await page.$eval('#bbb-search-location', el => el.value = '');
-        await page.type('#bbb-search-location', city, { delay: 100 });
-        
-        console.log('Filled in search form, waiting for submit button...');
-        
-        // Wait for and click the search button
-        await page.waitForSelector('button[data-testid="search-button"]', { timeout: 10000 });
-        await page.click('button[data-testid="search-button"]');
-        
-        // Wait for results to load
-        await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 });
-        
-        console.log('On results page, waiting for business listings...');
-        
-        // Wait for business listings to appear
-        await page.waitForSelector('[data-testid="search-result-list"]', { timeout: 30000 });
-        
-        // Extract business data
-        const businesses = await page.evaluate(() => {
-            const results = [];
-            const items = document.querySelectorAll('[data-testid="search-result-list"] > div');
+        // Wait for and fill search form
+        try {
+            await page.waitForSelector('#bbb-search-query', { timeout: 10000 });
+            await page.type('#bbb-search-query', businessType, { delay: 50 });
             
-            items.forEach(item => {
-                // Find business name
-                const nameElement = item.querySelector('[data-testid="business-name"]');
-                if (!nameElement) return;
+            await page.waitForSelector('#bbb-search-location', { timeout: 10000 });
+            await page.$eval('#bbb-search-location', el => el.value = '');
+            await page.type('#bbb-search-location', city, { delay: 50 });
+            
+            await page.waitForSelector('button[data-testid="search-button"]', { timeout: 10000 });
+            await Promise.all([
+                page.click('button[data-testid="search-button"]'),
+                page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 })
+            ]);
+        } catch (error) {
+            console.error('Search form error:', error);
+            throw new Error('Failed to submit search form');
+        }
+        
+        console.log('On results page, extracting business data...');
+        
+        // Extract business data with error handling
+        try {
+            await page.waitForSelector('[data-testid="search-result-list"]', { timeout: 30000 });
+            
+            const businesses = await page.evaluate(() => {
+                const results = [];
+                const items = document.querySelectorAll('[data-testid="search-result-list"] > div');
                 
-                // Extract other details
-                const addressElement = item.querySelector('[data-testid="address"]');
-                const phoneElement = item.querySelector('[data-testid="phone-number"]');
-                const ratingElement = item.querySelector('[data-testid="rating"]');
-                const yearsElement = item.querySelector('[data-testid="years-in-business"]');
-                
-                results.push({
-                    name: nameElement.textContent.trim(),
-                    address: addressElement ? addressElement.textContent.trim() : '',
-                    phone: phoneElement ? phoneElement.textContent.trim() : '',
-                    rating: ratingElement ? ratingElement.textContent.trim() : '',
-                    yearsInBusiness: yearsElement ? 
-                        parseInt(yearsElement.textContent.match(/\d+/)?.[0] || '0') : 0
+                items.forEach(item => {
+                    const nameElement = item.querySelector('[data-testid="business-name"]');
+                    if (!nameElement) return;
+                    
+                    const addressElement = item.querySelector('[data-testid="address"]');
+                    const phoneElement = item.querySelector('[data-testid="phone-number"]');
+                    const ratingElement = item.querySelector('[data-testid="rating"]');
+                    const yearsElement = item.querySelector('[data-testid="years-in-business"]');
+                    
+                    const years = yearsElement ? 
+                        parseInt(yearsElement.textContent.match(/\d+/)?.[0] || '0') : 0;
+                    
+                    if (!minYearsInBusiness || years >= minYearsInBusiness) {
+                        results.push({
+                            name: nameElement.textContent.trim(),
+                            address: addressElement ? addressElement.textContent.trim() : '',
+                            phone: phoneElement ? phoneElement.textContent.trim() : '',
+                            rating: ratingElement ? ratingElement.textContent.trim() : '',
+                            yearsInBusiness: years
+                        });
+                    }
                 });
+                
+                return results;
             });
             
-            return results;
-        });
-        
-        console.log(`Found ${businesses.length} businesses`);
-        
-        // Filter results
-        const filteredBusinesses = businesses.filter(business => {
-            if (requirePhone && !business.phone) return false;
-            if (minYearsInBusiness && business.yearsInBusiness < minYearsInBusiness) return false;
-            return true;
-        });
-        
-        console.log(`Returning ${filteredBusinesses.length} filtered businesses`);
-        
-        res.json(filteredBusinesses);
+            console.log(`Found ${businesses.length} businesses`);
+            
+            // Filter results
+            const filteredBusinesses = businesses.filter(business => {
+                if (requirePhone && !business.phone) return false;
+                return true;
+            });
+            
+            console.log(`Returning ${filteredBusinesses.length} filtered businesses`);
+            
+            res.json(filteredBusinesses);
+        } catch (error) {
+            console.error('Data extraction error:', error);
+            throw new Error('Failed to extract business data');
+        }
     } catch (error) {
         console.error('Search error:', error);
         res.status(500).json({ 

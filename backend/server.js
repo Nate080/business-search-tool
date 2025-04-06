@@ -10,8 +10,8 @@ const corsOptions = {
     origin: ['https://nate080.github.io', 'http://localhost:8080'],
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Accept'],
-    credentials: true,
-    maxAge: 86400 // 24 hours
+    credentials: false,
+    optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));

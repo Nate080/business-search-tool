@@ -14,38 +14,22 @@ app.use((req, res, next) => {
     next();
 });
 
-// CORS configuration
-const corsOptions = {
-    origin: ['https://nate080.github.io', 'http://localhost:8080', 'http://127.0.0.1:8080'],
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept', 'Origin'],
-    credentials: true,
-    optionsSuccessStatus: 204
-};
+// Define allowed origins for CORS
+const allowedOrigins = ['https://nate080.github.io', 'http://localhost:8080'];
 
-// Apply CORS middleware first
-app.use(cors(corsOptions));
-
-// Additional CORS headers for redundancy
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    
-    // Only set CORS headers if origin matches allowed list
-    if (corsOptions.origin.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin);
-        res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin');
-        res.header('Access-Control-Allow-Credentials', 'true');
+// Configure the CORS middleware with a custom function
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (e.g., mobile apps, curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      // Deny the request if the origin isn't in our list
+      return callback(new Error('CORS policy does not allow access from the specified Origin.'), false);
     }
-    
-    // Handle preflight
-    if (req.method === 'OPTIONS') {
-        res.status(204).end();
-        return;
-    }
-    
-    next();
-});
+    // Otherwise, allow the request
+    return callback(null, true);
+  }
+}));
 
 app.use(express.json());
 
@@ -98,7 +82,7 @@ app.post('/api/search', async (req, res) => {
         
         // Launch browser with system Chrome configuration
         const puppeteerConfig = {
-            headless: 'new',
+            headless: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -117,23 +101,9 @@ app.post('/api/search', async (req, res) => {
 
         // Use system Chrome if available
         if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-            console.log('Using system Chrome at:', process.env.PUPPETEER_EXECUTABLE_PATH);
-            try {
-                // Check if Chrome exists
-                const fs = require('fs');
-                if (fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
-                    puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-                    console.log('Chrome executable found at specified path');
-                } else {
-                    console.error('Chrome executable not found at:', process.env.PUPPETEER_EXECUTABLE_PATH);
-                    throw new Error('Chrome executable not found');
-                }
-            } catch (error) {
-                console.error('Error checking Chrome executable:', error);
-                throw error;
-            }
+            puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
         } else {
-            console.log('No system Chrome path specified, using bundled Chromium');
+            puppeteerConfig.executablePath = '/usr/bin/google-chrome'; // Set default path for Google Chrome
         }
         
         console.log('Launching browser with config:', JSON.stringify(puppeteerConfig, null, 2));

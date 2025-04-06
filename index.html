@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBB Business Search Tool</title>
+    <!-- Add Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js';
+        import { getFirestore, collection, addDoc, doc, updateDoc, serverTimestamp, arrayUnion } 
+        from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAUYgShz_0mR4QtR_qzuLmcbdBAVe3f3rA",
+            authDomain: "bbbserch-2b41a.firebaseapp.com",
+            projectId: "bbbserch-2b41a",
+            storageBucket: "bbbserch-2b41a.firebasestorage.app",
+            messagingSenderId: "24471607170",
+            appId: "1:24471607170:web:ed541f869e4095b1f8a19b",
+            measurementId: "G-YLKSTFJP23"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+        // Make Firebase functions available globally
+        window.db = db;
+        window.serverTimestamp = serverTimestamp;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.doc = doc;
+        window.updateDoc = updateDoc;
+        window.arrayUnion = arrayUnion;
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            text-align: center;
+        }
+        .search-container {
+            display: none;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .city-list, .term-list {
+            margin: 10px 0;
+        }
+        .city-input, .term-input {
+            display: flex;
+            margin-bottom: 5px;
+        }
+        .remove-btn {
+            background-color: #ff4444;
+            margin-left: 10px;
+        }
+        .remove-btn:hover {
+            background-color: #cc0000;
+        }
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress {
+            width: 0%;
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.5s ease-in-out;
+        }
+        .stats {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .mandatory-fields {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 4px;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+        }
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Section -->
+        <div class="login-container" id="loginSection">
+            <h2>BBB Business Search Tool</h2>
+            <div class="form-group">
+                <input type="password" id="password" placeholder="Enter password" required>
+            </div>
+            <div class="form-group">
+                <input type="text" id="fullName" placeholder="Enter your full name" required>
+            </div>
+            <button onclick="login()">Login</button>
+        </div>
+
+        <!-- Search Configuration Section -->
+        <div class="search-container" id="searchSection">
+            <h2>Search Configuration</h2>
+            <p>Configure your BBB business search below:</p>
+
+            <!-- Cities Section -->
+            <div class="form-group">
+                <label>Cities (max 10):</label>
+                <div class="city-list" id="cityList">
+                    <div class="city-input">
+                        <input type="text" placeholder="Enter city, STATE (e.g., Boise, ID)">
+                        <button class="remove-btn" onclick="removeInput(this)">Remove</button>
+                    </div>
+                </div>
+                <button onclick="addCity()" id="addCityBtn">Add City</button>
+            </div>
+
+            <!-- Search Terms Section -->
+            <div class="form-group">
+                <label>Search Terms (max 5):</label>
+                <div class="term-list" id="termList">
+                    <div class="term-input">
+                        <input type="text" value="Tree Service" list="defaultTerms">
+                        <button class="remove-btn" onclick="removeInput(this)">Remove</button>
+                    </div>
+                </div>
+                <button onclick="addTerm()" id="addTermBtn">Add Term</button>
+                <datalist id="defaultTerms">
+                    <option value="Tree Service">
+                    <option value="Landscaping">
+                    <option value="Irrigation">
+                    <option value="Hardscaping">
+                    <option value="Lawn Maintenance">
+                    <option value="Landscape">
+                    <option value="Lawn Care">
+                    <option value="Landscape Design">
+                </datalist>
+            </div>
+
+            <!-- Minimum Years Section -->
+            <div class="form-group">
+                <label>Minimum Years in Business:</label>
+                <input type="number" id="minYears" value="10" min="0">
+            </div>
+
+            <!-- Mandatory Fields Section -->
+            <div class="mandatory-fields">
+                <label>Required Fields:</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" value="phone" checked> Phone Number</label>
+                    <label><input type="checkbox" value="address"> Address</label>
+                    <label><input type="checkbox" value="owner"> Owner Name</label>
+                    <label><input type="checkbox" value="website"> Website</label>
+                </div>
+            </div>
+
+            <button onclick="startSearch()">Start Search</button>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="progress-container" id="progressSection">
+            <h3>Search Progress</h3>
+            <div class="progress-bar">
+                <div class="progress" id="progressBar"></div>
+            </div>
+            <div class="stats">
+                <span>Businesses Searched: <span id="searchedCount">0</span></span>
+                <span>Matches Found: <span id="matchesCount">0</span></span>
+                <span>Time Remaining: <span id="timeRemaining">calculating...</span></span>
+            </div>
+            <div class="stats">
+                <span>Running Time: <span id="runningTime">00:00:00</span></span>
+                <span>Success Rate: <span id="successRate">0%</span></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = '';
+        let currentSearchId = '';
+
+        // Login functionality
+        async function login() {
+            const password = document.getElementById('password').value;
+            const fullName = document.getElementById('fullName').value;
+            
+            if (password === 'Oak_Tree_Ind' && fullName.trim()) {
+                try {
+                    // Log user login
+                    await addDoc(collection(window.db, 'user_activity'), {
+                        name: fullName,
+                        action: 'login',
+                        timestamp: serverTimestamp()
+                    });
+                    
+                    currentUser = fullName;
+                    document.getElementById('loginSection').style.display = 'none';
+                    document.getElementById('searchSection').style.display = 'block';
+                } catch (error) {
+                    console.error('Error logging login:', error);
+                    alert('Error logging in. Please try again.');
+                }
+            } else {
+                alert('Invalid password or name');
+            }
+        }
+
+        // Input management
+        function addCity() {
+            const cityList = document.getElementById('cityList');
+            if (cityList.children.length >= 10) {
+                alert('Maximum 10 cities allowed');
+                return;
+            }
+            
+            const cityInput = document.createElement('div');
+            cityInput.className = 'city-input';
+            cityInput.innerHTML = `
+                <input type="text" placeholder="Enter city, STATE (e.g., Boise, ID)">
+                <button class="remove-btn" onclick="removeInput(this)">Remove</button>
+            `;
+            cityList.appendChild(cityInput);
+            updateAddButtons();
+        }
+
+        function addTerm() {
+            const termList = document.getElementById('termList');
+            if (termList.children.length >= 5) {
+                alert('Maximum 5 search terms allowed');
+                return;
+            }
+            
+            const termInput = document.createElement('div');
+            termInput.className = 'term-input';
+            termInput.innerHTML = `
+                <input type="text" placeholder="Enter search term" list="defaultTerms">
+                <button class="remove-btn" onclick="removeInput(this)">Remove</button>
+            `;
+            termList.appendChild(termInput);
+            updateAddButtons();
+        }
+
+        function removeInput(button) {
+            button.parentElement.remove();
+            updateAddButtons();
+        }
+
+        function updateAddButtons() {
+            document.getElementById('addCityBtn').disabled = 
+                document.getElementById('cityList').children.length >= 10;
+            document.getElementById('addTermBtn').disabled = 
+                document.getElementById('termList').children.length >= 5;
+        }
+
+        // Search functionality
+        async function startSearch() {
+            const cities = Array.from(document.querySelectorAll('#cityList input')).map(input => input.value);
+            const terms = Array.from(document.querySelectorAll('#termList input')).map(input => input.value);
+            const minYears = document.getElementById('minYears').value;
+            const requiredFields = Array.from(document.querySelectorAll('.checkbox-group input:checked')).map(cb => cb.value);
+            
+            if (!validateSearch(cities, terms)) return;
+            
+            const totalSearches = cities.length * terms.length;
+            const estimatedTimePerSearch = 2; // minutes
+            const totalEstimatedTime = totalSearches * estimatedTimePerSearch;
+            
+            if (!confirm(`This search will process ${totalSearches} combinations and take approximately ${totalEstimatedTime} minutes. Continue?`)) {
+                return;
+            }
+
+            try {
+                // Log search start
+                const searchConfig = { cities, terms, minYears, requiredFields };
+                const docRef = await addDoc(collection(window.db, 'searches'), {
+                    user: currentUser,
+                    config: searchConfig,
+                    status: 'started',
+                    startTime: serverTimestamp(),
+                    progress: 0,
+                    results: []
+                });
+                currentSearchId = docRef.id;
+                
+                document.getElementById('searchSection').style.display = 'none';
+                document.getElementById('progressSection').style.display = 'block';
+                
+                // Initialize web worker for search
+                const worker = new Worker('search-worker.js');
+                worker.postMessage({
+                    type: 'start',
+                    data: {
+                        searchId: currentSearchId,
+                        config: searchConfig
+                    }
+                });
+
+                worker.onmessage = async function(e) {
+                    const { type, data } = e.data;
+                    
+                    switch (type) {
+                        case 'progress':
+                            updateProgress(data);
+                            // Update Firebase with progress
+                            await updateDoc(doc(window.db, 'searches', currentSearchId), {
+                                progress: data.progress,
+                                results: arrayUnion(...data.results),
+                                lastUpdate: serverTimestamp()
+                            });
+                            break;
+                            
+                        case 'complete':
+                            handleSearchComplete(data);
+                            // Update Firebase with completion
+                            await updateDoc(doc(window.db, 'searches', currentSearchId), {
+                                status: 'completed',
+                                progress: 100,
+                                results: data.results,
+                                endTime: serverTimestamp()
+                            });
+                            break;
+                            
+                        case 'error':
+                            console.error('Search error:', data);
+                            break;
+                    }
+                };
+                
+            } catch (error) {
+                console.error('Error starting search:', error);
+                alert('Error starting search. Please try again.');
+            }
+        }
+
+        function validateSearch(cities, terms) {
+            if (cities.some(city => !city.trim())) {
+                alert('Please fill in all city fields');
+                return false;
+            }
+            if (terms.some(term => !term.trim())) {
+                alert('Please fill in all search term fields');
+                return false;
+            }
+            return true;
+        }
+
+        function updateProgress(data) {
+            const { progress, results } = data;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            document.getElementById('searchedCount').textContent = results.length;
+            document.getElementById('matchesCount').textContent = results.filter(r => r.isMatch).length;
+            document.getElementById('timeRemaining').textContent = `${Math.floor((100 - progress) / 10)} minutes`;
+            document.getElementById('runningTime').textContent = formatRunningTime(data.startTime);
+            document.getElementById('successRate').textContent = `${Math.floor((results.filter(r => r.isMatch).length / results.length) * 100)}%`;
+        }
+
+        function handleSearchComplete(data) {
+            alert(`Search complete! Found ${data.results.length} businesses.`);
+            // Enable download of results
+            const csv = convertToCSV(data.results);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bbb_search_results_${Date.now()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        function formatRunningTime(startTime) {
+            const elapsed = Date.now() - startTime;
+            const hours = Math.floor(elapsed / 3600000);
+            const minutes = Math.floor((elapsed % 3600000) / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function convertToCSV(results) {
+            const headers = [
+                'Company Name',
+                'City',
+                'Search Term',
+                'Phone',
+                'Address',
+                'Years in Business',
+                'Owner',
+                'Website'
+            ];
+            
+            const rows = results.map(business => [
+                business.name,
+                business.city,
+                business.searchTerm,
+                business.phone,
+                business.address,
+                business.yearsInBusiness,
+                business.owner,
+                business.website
+            ].map(field => `"${(field || '').replace(/"/g, '""')}"`).join(','));
+            
+            return [headers.join(','), ...rows].join('\n');
+        }
+    </script>
+</body>
+</html> 

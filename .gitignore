@@ -1,0 +1,26 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Cache files
+.cache/
+
+# Build files
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Firebase config (optional - since you're using public config)
+# firebase-config.js 

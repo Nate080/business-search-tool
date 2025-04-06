@@ -104,7 +104,7 @@ app.post('/api/search', async (req, res) => {
         
         // Launch browser with system Chrome configuration
         const puppeteerConfig = {
-            headless: true,
+            headless: 'new',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -123,10 +123,19 @@ app.post('/api/search', async (req, res) => {
         if (process.env.PUPPETEER_EXECUTABLE_PATH) {
             console.log('Using system Chrome at:', process.env.PUPPETEER_EXECUTABLE_PATH);
             puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+            // Add product option for Chromium
+            puppeteerConfig.product = 'chrome';
+        } else {
+            console.log('No system Chrome found, using bundled Chromium');
         }
         
-        console.log('Launching browser with config:', puppeteerConfig);
-        browser = await puppeteer.launch(puppeteerConfig);
+        console.log('Launching browser with config:', JSON.stringify(puppeteerConfig, null, 2));
+        try {
+            browser = await puppeteer.launch(puppeteerConfig);
+        } catch (error) {
+            console.error('Browser launch error:', error);
+            throw new Error(`Failed to launch browser: ${error.message}`);
+        }
         
         const page = await browser.newPage();
         

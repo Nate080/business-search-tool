@@ -259,52 +259,53 @@
     </div>
 
     <script>
-        // API Configuration - Production URL
-        const API_URL = 'https://business-search-toolv.onrender.com';
+        // API Configuration with proper CORS handling
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const API_URL = isLocalhost ? 'http://localhost:3000' : 'https://business-search-toolv.onrender.com';
         
-        // Check API Status
+        // Check API Status with proper CORS headers
         async function checkApiStatus() {
             const statusDot = document.querySelector('.status-dot');
             const statusText = document.querySelector('.status-text');
             
             try {
-                console.log('Checking API status...');
+                console.log('Checking API status...', {
+                    url: `${API_URL}/api/health`,
+                    origin: window.location.origin
+                });
+                
                 const response = await fetch(`${API_URL}/api/health`, {
                     method: 'GET',
-                    mode: 'cors',
                     headers: {
                         'Accept': 'application/json',
-                        'Origin': 'https://nate080.github.io'
-                    }
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'omit'
                 });
                 
                 console.log('API Response:', {
                     status: response.status,
                     ok: response.ok,
-                    statusText: response.statusText,
-                    headers: Object.fromEntries([...response.headers.entries()])
+                    statusText: response.statusText
                 });
                 
-                const data = await response.json();
-                console.log('API Data:', data);
-                
                 if (response.ok) {
+                    const data = await response.json();
                     statusDot.classList.remove('offline');
                     statusDot.classList.add('online');
                     statusText.textContent = 'API is online';
+                    console.log('API Data:', data);
                     return true;
                 } else {
                     throw new Error(`API returned error: ${response.statusText}`);
                 }
             } catch (error) {
-                console.error('API Error:', {
-                    name: error.name,
-                    message: error.message,
-                    stack: error.stack
-                });
+                console.error('API Error:', error);
                 statusDot.classList.remove('online');
                 statusDot.classList.add('offline');
-                statusText.textContent = 'API is offline - Please try again later';
+                statusText.textContent = isLocalhost ? 
+                    'API is offline - Please start the local server' : 
+                    'API is offline - Please try again later';
                 return false;
             }
         }
@@ -379,12 +380,11 @@
                         try {
                             const response = await fetch(`${API_URL}/api/search`, {
                                 method: 'POST',
-                                mode: 'cors',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'Accept': 'application/json',
-                                    'Origin': 'https://nate080.github.io'
+                                    'Accept': 'application/json'
                                 },
+                                credentials: 'omit',
                                 body: JSON.stringify({
                                     businessType: industry,
                                     city: location,

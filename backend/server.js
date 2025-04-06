@@ -10,26 +10,53 @@ app.set('trust proxy', 1);
 
 // Enable detailed error logging
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
     next();
 });
 
 // Define allowed origins for CORS
-const allowedOrigins = ['https://nate080.github.io', 'http://localhost:8080'];
+const allowedOrigins = [
+    'https://nate080.github.io',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080'
+];
 
-// Configure the CORS middleware with a custom function
-app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (e.g., mobile apps, curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      // Deny the request if the origin isn't in our list
-      return callback(new Error('CORS policy does not allow access from the specified Origin.'), false);
-    }
-    // Otherwise, allow the request
-    return callback(null, true);
-  }
-}));
+// CORS configuration
+const corsOptions = {
+    origin: function(origin, callback) {
+        console.log('Request origin:', origin);
+        
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) {
+            console.log('No origin specified, allowing request');
+            return callback(null, true);
+        }
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            console.log('Origin allowed:', origin);
+            return callback(null, true);
+        }
+        
+        console.log('Origin not allowed:', origin);
+        return callback(new Error('CORS policy violation'));
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Accept'],
+    credentials: false,
+    maxAge: 86400, // 24 hours
+    optionsSuccessStatus: 204
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Additional security headers
+app.use((req, res, next) => {
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('X-Frame-Options', 'DENY');
+    res.header('X-XSS-Protection', '1; mode=block');
+    next();
+});
 
 app.use(express.json());
 

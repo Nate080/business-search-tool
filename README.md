@@ -1,37 +1,75 @@
 # Business Search Tool
 
-A simple tool to search for businesses based on location, business type, and other criteria. This tool generates mock data for demonstration purposes.
+A web application for searching and collecting business information. The tool supports searching multiple industries and locations simultaneously, with filtering options for business age and required fields.
 
-## Features
+## 🌐 [Live Demo](https://yourusername.github.io/business-search-tool)
 
-- Search by city and business type
-- Filter by minimum years in business
-- Require phone number availability
-- Download results as CSV
-- Clean, modern interface
-- No external dependencies
-- Works entirely in the browser
+The live demo uses mock data to demonstrate the functionality. For full features with real data, please follow the local installation instructions below.
 
-## Usage
+## ✨ Features
 
-1. Enter a city (e.g., "Boise, ID")
-2. Enter a search term (e.g., "Tree Service")
-3. Set minimum years in business
-4. Check if phone number is required
-5. Click Search
-6. View results and download as CSV
+- 🔍 Search multiple industries and locations simultaneously
+- ⚡ Real-time progress tracking
+- 📊 Filter results by years in business
+- 📝 Require complete business information
+- 📥 Export results to CSV
+- 🎯 Estimated search time calculation
 
-## Development
+## 🚀 Local Installation
 
-This is a single HTML file with no external dependencies. To run locally:
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/business-search-tool.git
+cd business-search-tool
+```
 
-1. Clone the repository
-2. Open `index.html` in your browser
+2. Install dependencies:
+```bash
+npm install
+```
 
-## Demo
+3. Start the backend server:
+```bash
+node server.js
+```
 
-Visit [https://YOUR_USERNAME.github.io/business-search/](https://YOUR_USERNAME.github.io/business-search/) to see the live demo.
+4. In a new terminal, start the frontend server:
+```bash
+npx http-server
+```
 
-## License
+5. Open your browser and navigate to:
+```
+http://localhost:8080
+```
 
-MIT License 
+## 🛠️ Technology Stack
+
+- Frontend: HTML, CSS, JavaScript
+- Backend: Node.js, Express
+- Web Scraping: Puppeteer
+- Rate Limiting: express-rate-limit
+
+## 📝 Usage
+
+1. Enter one or more industries/business types (one per line)
+2. Enter one or more locations (one per line)
+3. Set the number of pages to search per combination
+4. Set minimum years in business
+5. Optionally require all fields to be present
+6. Click "Start Search" and monitor progress
+7. Download results as CSV when complete
+
+## ⚠️ Rate Limiting
+
+The backend includes rate limiting to prevent abuse:
+- 100 requests per 15 minutes per IP address
+- Random delays between requests to avoid detection
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 

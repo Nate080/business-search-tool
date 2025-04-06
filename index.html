@@ -375,7 +375,7 @@
                 document.getElementById('progressSection').style.display = 'block';
                 
                 // Initialize web worker for search
-                const worker = new Worker('search-worker.js');
+                const worker = new Worker('mock-search-worker.js');
                 worker.postMessage({
                     type: 'start',
                     data: {

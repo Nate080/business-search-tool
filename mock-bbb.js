@@ -1,13 +1,13 @@
-// BBB Scraping functionality for browser (mock data only)
-class BBBScraper {
+// Mock BBB data generator
+class MockBBBScraper {
     constructor(minYears, requiredFields) {
         this.minYears = minYears || 10;
         this.requiredFields = requiredFields || ['phone'];
     }
 
     async searchBusinesses(city, term) {
-        // For testing, return mock data immediately
-        console.log(`Searching ${term} in ${city} (mock data)`);
+        // Generate and return mock data
+        console.log(`[Mock] Searching ${term} in ${city}`);
         return this.getMockData(city, term);
     }
 
@@ -55,5 +55,5 @@ class BBBScraper {
     }
 }
 
-// Make BBBScraper available to the web worker
-self.BBBScraper = BBBScraper; 
+// Make MockBBBScraper available to the web worker
+self.MockBBBScraper = MockBBBScraper; 

@@ -1,7 +1,7 @@
-// Import the scraping functionality
-importScripts('bbb.js');
+// Import the mock data generator
+importScripts('mock-bbb.js');
 
-// Web Worker for handling BBB searches (mock data only)
+// Web Worker for handling mock BBB searches
 let startTime;
 let searchConfig;
 let results = [];
@@ -25,15 +25,15 @@ async function startSearch(config) {
     processedCombos = 0;
 
     try {
-        // Initialize BBB scraper
-        const scraper = new BBBScraper(minYears, requiredFields);
+        // Initialize mock BBB scraper
+        const scraper = new MockBBBScraper(minYears, requiredFields);
         
         for (let city of cities) {
             for (let term of terms) {
                 try {
-                    console.log(`Searching ${term} in ${city}...`);
+                    console.log(`Processing ${term} in ${city}...`);
                     
-                    // Use the BBB scraper to search (uses mock data)
+                    // Get mock data for this city/term combination
                     const businessResults = await scraper.searchBusinesses(city, term);
                     
                     // Filter results based on requirements
@@ -70,7 +70,7 @@ async function startSearch(config) {
                     });
 
                 } catch (error) {
-                    console.error(`Error searching ${term} in ${city}:`, error);
+                    console.error(`Error processing ${term} in ${city}:`, error);
                 }
                 
                 // Add a small delay between searches

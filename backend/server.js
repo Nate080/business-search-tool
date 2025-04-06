@@ -68,8 +68,8 @@ app.post('/api/search', async (req, res) => {
         
         console.log('Starting search for:', { businessType, city, minYearsInBusiness, requirePhone });
         
-        // Launch browser with Render-compatible configuration
-        browser = await puppeteer.launch({
+        // Launch browser with system Chrome configuration
+        const puppeteerConfig = {
             headless: true,
             args: [
                 '--no-sandbox',
@@ -78,13 +78,19 @@ app.post('/api/search', async (req, res) => {
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',
-                '--deterministic-fetch',
-                '--disable-features=IsolateOrigins',
-                '--disable-site-isolation-trials',
-                '--single-process'
-            ],
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null
-        });
+                '--single-process',
+                '--disable-extensions'
+            ]
+        };
+
+        // Use system Chrome if available
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            console.log('Using system Chrome at:', process.env.PUPPETEER_EXECUTABLE_PATH);
+            puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+        
+        console.log('Launching browser with config:', puppeteerConfig);
+        browser = await puppeteer.launch(puppeteerConfig);
         
         const page = await browser.newPage();
         
@@ -118,7 +124,7 @@ app.post('/api/search', async (req, res) => {
             });
         } catch (error) {
             console.error('Navigation error:', error);
-            throw new Error('Failed to load BBB website');
+            throw new Error('Failed to load BBB website: ' + error.message);
         }
         
         // Wait for and fill search form

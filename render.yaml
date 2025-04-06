@@ -2,12 +2,18 @@ services:
   - type: web
     name: business-search-tool
     env: node
-    buildCommand: cd backend && npm install
-    startCommand: cd backend && node server.js
+    buildCommand: |
+      cd backend && 
+      apt-get update && 
+      apt-get install -y chromium chromium-sandbox && 
+      npm install
+    startCommand: cd backend && PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium node server.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3000
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: true
     healthCheckPath: /api/health
     autoDeploy: true 

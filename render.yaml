@@ -9,24 +9,26 @@ services:
       # Install Chrome dependencies
       apt-get update
       apt-get install -y \
+        ca-certificates \
         fonts-liberation \
-        gconf-service \
-        libappindicator1 \
         libasound2 \
+        libatk-bridge2.0-0 \
         libatk1.0-0 \
+        libc6 \
         libcairo2 \
         libcups2 \
+        libdbus-1-3 \
+        libexpat1 \
         libfontconfig1 \
-        libgbm-dev \
-        libgdk-pixbuf2.0-0 \
+        libgbm1 \
+        libgcc1 \
+        libglib2.0-0 \
         libgtk-3-0 \
-        libicu-dev \
-        libjpeg-dev \
         libnspr4 \
         libnss3 \
         libpango-1.0-0 \
         libpangocairo-1.0-0 \
-        libpng-dev \
+        libstdc++6 \
         libx11-6 \
         libx11-xcb1 \
         libxcb1 \
@@ -40,9 +42,14 @@ services:
         libxrender1 \
         libxss1 \
         libxtst6 \
-        xdg-utils \
-        chromium \
-        chromium-sandbox
+        lsb-release \
+        wget \
+        xdg-utils
+      # Download and install Chrome
+      wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+      apt-get install -y ./google-chrome-stable_current_amd64.deb
+      # Verify Chrome installation
+      google-chrome --version
     startCommand: cd backend && node server.js
     envVars:
       - key: NODE_ENV
@@ -52,6 +59,6 @@ services:
       - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
         value: true
       - key: PUPPETEER_EXECUTABLE_PATH
-        value: /usr/bin/chromium
+        value: /usr/bin/google-chrome
     healthCheckPath: /api/health
     autoDeploy: true 

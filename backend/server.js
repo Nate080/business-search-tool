@@ -109,23 +109,38 @@ app.post('/api/search', async (req, res) => {
                 '--single-process',
                 '--disable-extensions',
                 '--window-size=1920,1080',
+                '--disable-web-security',
                 '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-            ]
+            ],
+            ignoreHTTPSErrors: true
         };
 
         // Use system Chrome if available
         if (process.env.PUPPETEER_EXECUTABLE_PATH) {
             console.log('Using system Chrome at:', process.env.PUPPETEER_EXECUTABLE_PATH);
-            puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-            // Add product option for Chromium
-            puppeteerConfig.product = 'chrome';
+            try {
+                // Check if Chrome exists
+                const fs = require('fs');
+                if (fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+                    puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+                    console.log('Chrome executable found at specified path');
+                } else {
+                    console.error('Chrome executable not found at:', process.env.PUPPETEER_EXECUTABLE_PATH);
+                    throw new Error('Chrome executable not found');
+                }
+            } catch (error) {
+                console.error('Error checking Chrome executable:', error);
+                throw error;
+            }
         } else {
-            console.log('No system Chrome found, using bundled Chromium');
+            console.log('No system Chrome path specified, using bundled Chromium');
         }
         
         console.log('Launching browser with config:', JSON.stringify(puppeteerConfig, null, 2));
         try {
             browser = await puppeteer.launch(puppeteerConfig);
+            const version = await browser.version();
+            console.log('Browser version:', version);
         } catch (error) {
             console.error('Browser launch error:', error);
             throw new Error(`Failed to launch browser: ${error.message}`);

@@ -5,6 +5,9 @@ const puppeteer = require('puppeteer');
 const rateLimit = require('express-rate-limit');
 const app = express();
 
+// Trust proxy - required for Render deployment
+app.set('trust proxy', 1);
+
 // Enable detailed error logging
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
@@ -13,28 +16,11 @@ app.use((req, res, next) => {
 
 // CORS configuration
 const corsOptions = {
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        
-        const allowedOrigins = [
-            'https://nate080.github.io',
-            'http://localhost:8080',
-            'http://127.0.0.1:8080'
-        ];
-        
-        if (allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            console.log('Origin not allowed:', origin);
-            // Still allow the request to go through
-            callback(null, true);
-        }
-    },
+    origin: ['https://nate080.github.io', 'http://localhost:8080', 'http://127.0.0.1:8080'],
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Accept', 'Origin'],
     credentials: true,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 204
 };
 
 // Apply CORS middleware first
@@ -42,18 +28,20 @@ app.use(cors(corsOptions));
 
 // Additional CORS headers for redundancy
 app.use((req, res, next) => {
-    // Log the incoming request origin
-    console.log('Request origin:', req.headers.origin);
+    const origin = req.headers.origin;
     
-    // Allow all origins for now to debug
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin');
-    res.header('Access-Control-Allow-Credentials', 'true');
+    // Only set CORS headers if origin matches allowed list
+    if (corsOptions.origin.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin');
+        res.header('Access-Control-Allow-Credentials', 'true');
+    }
     
     // Handle preflight
     if (req.method === 'OPTIONS') {
-        return res.status(200).end();
+        res.status(204).end();
+        return;
     }
     
     next();
@@ -76,7 +64,13 @@ app.use((err, req, res, next) => {
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: process.env.NODE_ENV === 'production' ? 100 : 0, // limit each IP in production
-    message: 'Too many requests from this IP, please try again after 15 minutes'
+    message: 'Too many requests from this IP, please try again after 15 minutes',
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Use forwarded IP from Render's proxy
+    keyGenerator: (req) => {
+        return req.ip; // Since we set trust proxy, this will use X-Forwarded-For
+    }
 });
 
 app.use('/api/', limiter);

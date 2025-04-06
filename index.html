@@ -273,14 +273,16 @@
                     method: 'GET',
                     mode: 'cors',
                     headers: {
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'Origin': 'https://nate080.github.io'
                     }
                 });
                 
                 console.log('API Response:', {
                     status: response.status,
                     ok: response.ok,
-                    statusText: response.statusText
+                    statusText: response.statusText,
+                    headers: Object.fromEntries([...response.headers.entries()])
                 });
                 
                 const data = await response.json();
@@ -380,7 +382,8 @@
                                 mode: 'cors',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'Accept': 'application/json'
+                                    'Accept': 'application/json',
+                                    'Origin': 'https://nate080.github.io'
                                 },
                                 body: JSON.stringify({
                                     businessType: industry,
@@ -388,6 +391,13 @@
                                     minYearsInBusiness: minYears,
                                     requirePhone: requireAllFields
                                 })
+                            });
+                            
+                            console.log('Search Response:', {
+                                status: response.status,
+                                ok: response.ok,
+                                statusText: response.statusText,
+                                headers: Object.fromEntries([...response.headers.entries()])
                             });
                             
                             if (!response.ok) {

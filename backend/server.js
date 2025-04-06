@@ -11,35 +11,35 @@ app.use((req, res, next) => {
     next();
 });
 
-// CORS configuration - more permissive for debugging
+// CORS configuration
+const corsOptions = {
+    origin: ['https://nate080.github.io', 'http://localhost:8080'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Accept'],
+    optionsSuccessStatus: 200
+};
+
+// Apply CORS middleware first
+app.use(cors(corsOptions));
+
+// Additional CORS headers for redundancy
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Origin', 'https://nate080.github.io');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Accept');
-    res.header('Access-Control-Max-Age', '86400'); // 24 hours
-    
-    // Handle preflight requests
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
     next();
 });
 
-// Regular CORS middleware as backup
-app.use(cors());
-
 app.use(express.json());
 
-// Error handling for JSON parsing
+// Global error handler
 app.use((err, req, res, next) => {
-    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-        return res.status(400).json({ 
-            error: 'Invalid JSON',
-            details: err.message 
-        });
-    }
-    next(err);
+    console.error('Global error:', err);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message,
+        timestamp: new Date().toISOString()
+    });
 });
 
 // Rate limiting
@@ -56,7 +56,11 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'ok',
         timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
+        environment: process.env.NODE_ENV || 'development',
+        cors: {
+            origin: req.headers.origin,
+            method: req.method
+        }
     });
 });
 

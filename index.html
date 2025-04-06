@@ -24,18 +24,24 @@
         };
 
         // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
-        const db = getFirestore(app);
+        try {
+            const app = initializeApp(firebaseConfig);
+            const analytics = getAnalytics(app);
+            const db = getFirestore(app);
 
-        // Make Firebase functions available globally
-        window.db = db;
-        window.serverTimestamp = serverTimestamp;
-        window.collection = collection;
-        window.addDoc = addDoc;
-        window.doc = doc;
-        window.updateDoc = updateDoc;
-        window.arrayUnion = arrayUnion;
+            // Make Firebase functions available globally
+            window.db = db;
+            window.serverTimestamp = serverTimestamp;
+            window.collection = collection;
+            window.addDoc = addDoc;
+            window.doc = doc;
+            window.updateDoc = updateDoc;
+            window.arrayUnion = arrayUnion;
+
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Error initializing Firebase:', error);
+        }
     </script>
     <style>
         body {
@@ -246,23 +252,31 @@
             const password = document.getElementById('password').value;
             const fullName = document.getElementById('fullName').value;
             
+            console.log('Attempting login...');
+            
             if (password === 'Oak_Tree_Ind' && fullName.trim()) {
                 try {
+                    console.log('Password correct, logging to Firebase...');
+                    
                     // Log user login
                     await addDoc(collection(window.db, 'user_activity'), {
                         name: fullName,
                         action: 'login',
-                        timestamp: serverTimestamp()
+                        timestamp: serverTimestamp(),
+                        userAgent: navigator.userAgent,
+                        domain: window.location.hostname
                     });
                     
+                    console.log('Login logged successfully');
                     currentUser = fullName;
                     document.getElementById('loginSection').style.display = 'none';
                     document.getElementById('searchSection').style.display = 'block';
                 } catch (error) {
                     console.error('Error logging login:', error);
-                    alert('Error logging in. Please try again.');
+                    alert('Error logging in. Please try again. Error: ' + error.message);
                 }
             } else {
+                console.log('Invalid password or name');
                 alert('Invalid password or name');
             }
         }

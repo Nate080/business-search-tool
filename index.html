@@ -254,30 +254,43 @@
             
             console.log('Attempting login...');
             
-            if (password === 'Oak_Tree_Ind' && fullName.trim()) {
+            if (!password || !fullName.trim()) {
+                console.log('Missing password or name');
+                alert('Please enter both password and full name');
+                return;
+            }
+
+            if (password === 'Oak_Tree_Ind') {
                 try {
-                    console.log('Password correct, logging to Firebase...');
+                    console.log('Password correct, proceeding with login...');
                     
-                    // Log user login
-                    await addDoc(collection(window.db, 'user_activity'), {
-                        name: fullName,
-                        action: 'login',
-                        timestamp: serverTimestamp(),
-                        userAgent: navigator.userAgent,
-                        domain: window.location.hostname
-                    });
-                    
-                    console.log('Login logged successfully');
+                    // Set user and show search section immediately
                     currentUser = fullName;
                     document.getElementById('loginSection').style.display = 'none';
                     document.getElementById('searchSection').style.display = 'block';
+                    
+                    // Try to log to Firebase only after successful UI update
+                    if (window.db) {
+                        try {
+                            await addDoc(collection(window.db, 'user_activity'), {
+                                name: fullName,
+                                action: 'login',
+                                timestamp: serverTimestamp()
+                            }).catch(error => {
+                                console.warn('Non-critical: Failed to log to Firebase:', error);
+                            });
+                        } catch (firebaseError) {
+                            console.warn('Non-critical: Firebase logging failed:', firebaseError);
+                        }
+                    } else {
+                        console.warn('Non-critical: Firebase not initialized');
+                    }
                 } catch (error) {
-                    console.error('Error logging login:', error);
-                    alert('Error logging in. Please try again. Error: ' + error.message);
+                    console.warn('Non-critical error during login:', error);
                 }
             } else {
-                console.log('Invalid password or name');
-                alert('Invalid password or name');
+                console.log('Invalid password');
+                alert('Invalid password');
             }
         }
 

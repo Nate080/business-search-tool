@@ -1,6 +1,9 @@
-// Web Worker for handling BBB searches
-let currentSearchId = null;
-let searchConfig = null;
+// Import the scraping functionality
+importScripts('bbb.js');
+
+// Web Worker for handling BBB searches (mock data only)
+let startTime;
+let searchConfig;
 let results = [];
 let processedCombos = 0;
 let totalCombos = 0;
@@ -8,158 +11,94 @@ let totalCombos = 0;
 self.onmessage = async function(e) {
     const { type, data } = e.data;
     
-    switch (type) {
-        case 'start':
-            currentSearchId = data.searchId;
-            searchConfig = data.config;
-            await startSearch();
-            break;
-        case 'stop':
-            // Handle search stopping
-            break;
+    if (type === 'start') {
+        startTime = Date.now();
+        searchConfig = data.config;
+        await startSearch(searchConfig);
     }
 };
 
-async function startSearch() {
-    const { cities, terms, minYears, requiredFields } = searchConfig;
+async function startSearch(config) {
+    const { cities, terms, minYears, requiredFields } = config;
     totalCombos = cities.length * terms.length;
     results = [];
     processedCombos = 0;
 
-    for (const city of cities) {
-        for (const term of terms) {
-            try {
-                const cityResults = await searchCityTerm(city, term);
-                results.push(...cityResults);
-                processedCombos++;
-                
-                // Report progress
-                const progress = (processedCombos / totalCombos) * 100;
-                self.postMessage({
-                    type: 'progress',
-                    data: {
-                        progress,
-                        results: cityResults,
-                        city,
-                        term
-                    }
-                });
-                
-                // Small delay to prevent overwhelming the BBB server
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-            } catch (error) {
-                console.error(`Error searching ${city} for ${term}:`, error);
-                self.postMessage({
-                    type: 'error',
-                    data: {
-                        city,
-                        term,
-                        error: error.message
-                    }
-                });
-            }
-        }
-    }
-
-    // Search complete
-    self.postMessage({
-        type: 'complete',
-        data: {
-            results,
-            totalBusinesses: results.length
-        }
-    });
-}
-
-async function searchCityTerm(city, term) {
-    const { minYears, requiredFields } = searchConfig;
-    const results = [];
-    let page = 1;
-    let hasMorePages = true;
-
-    while (hasMorePages && page <= 25) { // Limit to 25 pages per search
-        try {
-            const url = `https://www.bbb.org/search?find_text=${encodeURIComponent(term)}&find_loc=${encodeURIComponent(city)}&page=${page}`;
-            const response = await fetch(url);
-            const html = await response.text();
-            
-            // Parse businesses from the page
-            const businesses = parseBusinessListings(html);
-            if (businesses.length === 0) {
-                hasMorePages = false;
-                continue;
-            }
-
-            // Process each business
-            for (const business of businesses) {
-                if (await isValidBusiness(business, minYears, requiredFields)) {
-                    results.push({
-                        ...business,
-                        searchTerm: term,
-                        city
-                    });
-                }
-            }
-
-            page++;
-            
-            // Small delay between pages
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-        } catch (error) {
-            console.error(`Error on page ${page}:`, error);
-            hasMorePages = false;
-        }
-    }
-
-    return results;
-}
-
-function parseBusinessListings(html) {
-    // This is a placeholder - actual implementation would parse the HTML
-    // and extract business information
-    return [];
-}
-
-async function isValidBusiness(business, minYears, requiredFields) {
     try {
-        const response = await fetch(business.detailUrl);
-        const html = await response.text();
+        // Initialize BBB scraper
+        const scraper = new BBBScraper(minYears, requiredFields);
         
-        // Extract business details
-        const details = parseBusinessDetails(html);
-        
-        // Check years in business
-        if (details.yearsInBusiness < minYears) {
-            return false;
-        }
-        
-        // Check required fields
-        for (const field of requiredFields) {
-            if (!details[field]) {
-                return false;
+        for (let city of cities) {
+            for (let term of terms) {
+                try {
+                    console.log(`Searching ${term} in ${city}...`);
+                    
+                    // Use the BBB scraper to search (uses mock data)
+                    const businessResults = await scraper.searchBusinesses(city, term);
+                    
+                    // Filter results based on requirements
+                    const validResults = businessResults.filter(business => 
+                        scraper.validateBusiness(business)
+                    );
+                    
+                    // Add valid results to our collection
+                    results.push(...validResults);
+                    
+                    processedCombos++;
+                    
+                    // Calculate elapsed time and estimated time remaining
+                    const elapsedMs = Date.now() - startTime;
+                    const avgTimePerCombo = elapsedMs / processedCombos;
+                    const remainingCombos = totalCombos - processedCombos;
+                    const estimatedRemainingMs = avgTimePerCombo * remainingCombos;
+                    
+                    // Send progress update
+                    self.postMessage({
+                        type: 'progress',
+                        data: {
+                            progress: Math.floor((processedCombos / totalCombos) * 100),
+                            results: validResults,
+                            startTime: startTime,
+                            processedCombos,
+                            totalCombos,
+                            currentCity: city,
+                            currentTerm: term,
+                            elapsedMs,
+                            estimatedRemainingMs,
+                            totalResults: results.length
+                        }
+                    });
+
+                } catch (error) {
+                    console.error(`Error searching ${term} in ${city}:`, error);
+                }
+                
+                // Add a small delay between searches
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
         }
-        
-        return true;
-    } catch (error) {
-        console.error('Error checking business:', error);
-        return false;
-    }
-}
 
-function parseBusinessDetails(html) {
-    // This is a placeholder - actual implementation would parse the HTML
-    // and extract detailed business information
-    return {
-        name: '',
-        phone: '',
-        address: '',
-        yearsInBusiness: 0,
-        owner: '',
-        website: ''
-    };
+        // Send completion message
+        self.postMessage({
+            type: 'complete',
+            data: {
+                results: results,
+                totalSearched: processedCombos,
+                totalResults: results.length,
+                elapsedMs: Date.now() - startTime
+            }
+        });
+
+    } catch (error) {
+        self.postMessage({
+            type: 'error',
+            data: {
+                message: error.message,
+                processedCombos,
+                totalCombos
+            }
+        });
+    }
 }
 
 // Helper function to convert results to CSV

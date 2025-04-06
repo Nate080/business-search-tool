@@ -5,16 +5,26 @@ const puppeteer = require('puppeteer');
 const rateLimit = require('express-rate-limit');
 const app = express();
 
+// CORS configuration
+const corsOptions = {
+    origin: ['https://nate080.github.io', 'http://localhost:8080'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Accept'],
+    credentials: true,
+    maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
+app.use(express.json());
+
 // Rate limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: process.env.NODE_ENV === 'production' ? 100 : 0, // limit each IP in production
+    message: 'Too many requests from this IP, please try again after 15 minutes'
 });
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(limiter);
+app.use('/api/', limiter);
 
 // Search endpoint
 app.post('/api/search', async (req, res) => {

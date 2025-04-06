@@ -272,7 +272,9 @@
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json'
-                    }
+                    },
+                    credentials: 'include',
+                    mode: 'cors'
                 });
                 
                 if (response.ok) {
@@ -366,6 +368,7 @@
                                     'Content-Type': 'application/json',
                                     'Accept': 'application/json'
                                 },
+                                credentials: 'include',
                                 mode: 'cors',
                                 body: JSON.stringify({
                                     industry,

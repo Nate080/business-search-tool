@@ -13,9 +13,27 @@ app.use((req, res, next) => {
 
 // CORS configuration
 const corsOptions = {
-    origin: ['https://nate080.github.io', 'http://localhost:8080'],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        const allowedOrigins = [
+            'https://nate080.github.io',
+            'http://localhost:8080',
+            'http://127.0.0.1:8080'
+        ];
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.log('Origin not allowed:', origin);
+            // Still allow the request to go through
+            callback(null, true);
+        }
+    },
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Accept', 'Origin'],
+    credentials: true,
     optionsSuccessStatus: 200
 };
 
@@ -24,9 +42,20 @@ app.use(cors(corsOptions));
 
 // Additional CORS headers for redundancy
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'https://nate080.github.io');
+    // Log the incoming request origin
+    console.log('Request origin:', req.headers.origin);
+    
+    // Allow all origins for now to debug
+    res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    
     next();
 });
 
@@ -38,7 +67,8 @@ app.use((err, req, res, next) => {
     res.status(500).json({
         error: 'Internal Server Error',
         message: err.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        origin: req.headers.origin
     });
 });
 

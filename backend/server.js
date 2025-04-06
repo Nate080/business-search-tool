@@ -47,9 +47,9 @@ app.post('/api/search', async (req, res) => {
         
         console.log('Starting search for:', { businessType, city, minYearsInBusiness, requirePhone });
         
-        // Launch browser with production-ready configuration
+        // Launch browser with Render-compatible configuration
         browser = await puppeteer.launch({
-            headless: 'new',
+            headless: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -57,9 +57,12 @@ app.post('/api/search', async (req, res) => {
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',
-                '--single-process',
-                '--disable-extensions'
-            ]
+                '--deterministic-fetch',
+                '--disable-features=IsolateOrigins',
+                '--disable-site-isolation-trials',
+                '--single-process'
+            ],
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null
         });
         
         const page = await browser.newPage();
@@ -90,7 +93,7 @@ app.post('/api/search', async (req, res) => {
         try {
             await page.goto('https://www.bbb.org/', {
                 waitUntil: 'networkidle0',
-                timeout: 30000
+                timeout: 60000
             });
         } catch (error) {
             console.error('Navigation error:', error);
@@ -99,30 +102,33 @@ app.post('/api/search', async (req, res) => {
         
         // Wait for and fill search form
         try {
-            await page.waitForSelector('#bbb-search-query', { timeout: 10000 });
-            await page.type('#bbb-search-query', businessType, { delay: 50 });
+            console.log('Waiting for search form...');
+            await page.waitForSelector('#bbb-search-query', { timeout: 30000 });
+            await page.type('#bbb-search-query', businessType, { delay: 100 });
             
-            await page.waitForSelector('#bbb-search-location', { timeout: 10000 });
+            console.log('Filling location...');
+            await page.waitForSelector('#bbb-search-location', { timeout: 30000 });
             await page.$eval('#bbb-search-location', el => el.value = '');
-            await page.type('#bbb-search-location', city, { delay: 50 });
+            await page.type('#bbb-search-location', city, { delay: 100 });
             
-            await page.waitForSelector('button[data-testid="search-button"]', { timeout: 10000 });
+            console.log('Submitting search...');
+            await page.waitForSelector('button[data-testid="search-button"]', { timeout: 30000 });
             await Promise.all([
                 page.click('button[data-testid="search-button"]'),
-                page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 })
+                page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 })
             ]);
         } catch (error) {
             console.error('Search form error:', error);
-            throw new Error('Failed to submit search form');
+            throw new Error('Failed to submit search form: ' + error.message);
         }
         
         console.log('On results page, extracting business data...');
         
         // Extract business data with error handling
         try {
-            await page.waitForSelector('[data-testid="search-result-list"]', { timeout: 30000 });
+            await page.waitForSelector('[data-testid="search-result-list"]', { timeout: 60000 });
             
-            const businesses = await page.evaluate(() => {
+            const businesses = await page.evaluate((minYearsInBusiness) => {
                 const results = [];
                 const items = document.querySelectorAll('[data-testid="search-result-list"] > div');
                 
@@ -150,7 +156,7 @@ app.post('/api/search', async (req, res) => {
                 });
                 
                 return results;
-            });
+            }, minYearsInBusiness);
             
             console.log(`Found ${businesses.length} businesses`);
             
@@ -165,7 +171,7 @@ app.post('/api/search', async (req, res) => {
             res.json(filteredBusinesses);
         } catch (error) {
             console.error('Data extraction error:', error);
-            throw new Error('Failed to extract business data');
+            throw new Error('Failed to extract business data: ' + error.message);
         }
     } catch (error) {
         console.error('Search error:', error);

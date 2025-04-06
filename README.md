@@ -2,7 +2,7 @@
 
 A web application for searching and collecting business information. The tool supports searching multiple industries and locations simultaneously, with filtering options for business age and required fields.
 
-## 🌐 [Live Demo](https://yourusername.github.io/business-search-tool)
+## 🌐 [Live Demo](https://Nate080.github.io/business-search-tool)
 
 The live demo uses mock data to demonstrate the functionality. For full features with real data, please follow the local installation instructions below.
 
@@ -19,7 +19,7 @@ The live demo uses mock data to demonstrate the functionality. For full features
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/business-search-tool.git
+git clone https://github.com/Nate080/business-search-tool.git
 cd business-search-tool
 ```
 
